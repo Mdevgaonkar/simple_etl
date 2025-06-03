@@ -1,0 +1,14 @@
+[project]
+name = "simplebeam-file-to-pg"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "apache-beam>=2.65.0",
+    "pandas>=2.2.3",
+    "prisma>=0.15.0",
+    "pytho>=0.0.1",
+    "python-dotenv>=1.1.0",
+    "wheel>=0.45.1",
+]
