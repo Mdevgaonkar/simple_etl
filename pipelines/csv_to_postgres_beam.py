@@ -56,9 +56,8 @@ def parse_csv_line(line, column_names):
     reader = csv.DictReader([line], fieldnames=column_names)
     return next(reader)
 
-def dict_to_namedtuple(name, d):
-    NT = namedtuple(name, d.keys())
-    return NT(**d)
+def dict_to_namedtuple(t,d):
+    return t(**d)
 
 def run_pipeline(csv_path, mapping_path, db_url, db_user, db_pass):
     mapping = read_column_mapping(mapping_path)
@@ -66,6 +65,7 @@ def run_pipeline(csv_path, mapping_path, db_url, db_user, db_pass):
     history_table = mapping['target_history_table']
     column_map = mapping['column_mapping']
     columns = list(column_map.values())
+    MyRow = namedtuple('MyRow', columns)
 
     options = PipelineOptions()
     with beam.Pipeline(options=options) as p:
@@ -77,21 +77,22 @@ def run_pipeline(csv_path, mapping_path, db_url, db_user, db_pass):
             | 'Map Columns' >> beam.Map(lambda row: {column_map[k]: v for k, v in row.items() if k in column_map})
 
             # | 'print Rows' >> beam.Map(lambda x: print("Row dict:",x))  # Debugging step to see rows
-            | 'To NamedTuple' >> beam.Map(lambda d: dict_to_namedtuple('Row', d))
-            | 'print Rows' >> beam.Map(lambda x: print("Row dict:",x))  # Debugging step to see rows
+            # | 'To NamedTuple' >> beam.Map(lambda d: MyRow(**d))
+            # | 'print Rows' >> beam.Map(lambda x: print("Row dict:",x))  # Debugging step to see rows
         )
-        # Write to main table
-        # _ = (
-        #     rows
-        #     | 'Write Main Table' >> jdbc.WriteToJdbc(
-        #         table_name=f"public.{main_table}",
-        #         driver_class_name='org.postgresql.Driver',
-        #         jdbc_url=db_url,
-        #         username=db_user,
-        #         password=db_pass,
-        #         statement=f"INSERT INTO public.{main_table} ({', '.join(columns)}) VALUES ({', '.join(['?' for _ in columns])})"
-        #     )
-        # )
+        ## Write to main table
+        _ = (
+            rows
+            | 'Write Main Table' >> jdbc.WriteToJdbc(
+                table_name=f"public.{main_table}",
+                driver_class_name='org.postgresql.Driver',
+                jdbc_url=db_url,
+                username=db_user,
+                password=db_pass,
+                statement=f"INSERT INTO public.{main_table} ({', '.join(columns)}) VALUES ({', '.join([f':{col}' for col in columns])})"
+                # statement=f"INSERT INTO public.{main_table} ({', '.join(columns)}) VALUES ({', '.join(['?' for _ in columns])})"
+            )
+        )
         # # Read current history table for SCD2
         # history_rows = (
         #     p
